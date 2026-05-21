@@ -1,12 +1,14 @@
 import { useState, useMemo } from 'react';
 import { useStore } from '../store/useStore';
-import { Search, Printer, FileText, Download, DollarSign, TrendingUp, Calendar, Hash, CreditCard, User, Box, PieChart as PieChartIcon } from 'lucide-react';
+import { Search, Printer, FileText, Download, DollarSign, TrendingUp, Calendar, Hash, CreditCard, User, Box, PieChart as PieChartIcon, Trash2 } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import StatCard from '../components/ui/StatCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDateFilter } from '../hooks/useDateFilter';
 import { DATE_RANGES } from '../utils/dateFilters';
+import toast from 'react-hot-toast';
+import { dbService } from '../services/db';
 
 const safeFormatDate = (dateString) => {
   try {
@@ -70,6 +72,24 @@ export default function Sales() {
 
   const printInvoice = (item) => {
     navigate('/invoice', { state: { item } });
+  };
+
+  const handleDeleteSale = async (item) => {
+    if (window.confirm(`Are you sure you want to delete this sale for ${item.modelName}? The product will be returned to inventory.`)) {
+      try {
+        await dbService.deleteSale(item.id, item.productId);
+        toast.success('Sale deleted successfully. Product returned to inventory.', {
+          style: {
+            background: '#18181b',
+            color: '#fff',
+            border: '1px solid #27272a'
+          }
+        });
+      } catch (error) {
+        console.error("Error deleting sale: ", error);
+        toast.error('Failed to delete sale.');
+      }
+    }
   };
 
   const exportCSV = () => {
@@ -245,17 +265,26 @@ export default function Sales() {
                       +₹{Number(item.profit).toLocaleString()}
                     </td>
                     <td className="px-5 py-4 text-center">
-                      <button 
-                        onClick={() => printInvoice({
-                           ...item, 
-                           imei: item.imeiNumber, 
-                           brand: item.brandName
-                        })}
-                        className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-white bg-white/10 hover:bg-indigo-500 transition-all border border-white/5 shadow-sm group-hover:border-indigo-400/30"
-                      >
-                        <Printer className="w-3.5 h-3.5" />
-                        Print
-                      </button>
+                      <div className="flex items-center justify-center gap-2">
+                        <button 
+                          onClick={() => printInvoice({
+                             ...item, 
+                             imei: item.imeiNumber, 
+                             brand: item.brandName
+                          })}
+                          className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-white bg-white/10 hover:bg-indigo-500 transition-all border border-white/5 shadow-sm group-hover:border-indigo-400/30"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                          Print
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSale(item)}
+                          className="inline-flex items-center justify-center p-2 rounded-xl text-white bg-red-500/10 hover:bg-red-500 transition-all border border-red-500/20 shadow-sm"
+                          title="Delete Sale"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

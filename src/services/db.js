@@ -12,7 +12,8 @@ import {
   serverTimestamp,
   getDocs,
   where,
-  setDoc
+  setDoc,
+  deleteField
 } from 'firebase/firestore';
 
 const PRODUCTS_COLLECTION = 'products';
@@ -172,6 +173,30 @@ export const dbService = {
     };
     
     batch.set(saleRef, saleData);
+
+    await batch.commit();
+  },
+
+  // Delete a sale and revert product status
+  deleteSale: async (saleId, productId) => {
+    const batch = writeBatch(db);
+    
+    // 1. Delete the sale entry
+    const saleRef = doc(db, SALES_COLLECTION, saleId);
+    batch.delete(saleRef);
+
+    // 2. Revert the product status
+    if (productId) {
+      const productRef = doc(db, PRODUCTS_COLLECTION, productId);
+      batch.update(productRef, {
+        status: 'In Stock',
+        soldPrice: deleteField(),
+        soldDate: deleteField(),
+        customerName: deleteField(),
+        customerPhone: deleteField(),
+        updatedAt: new Date().toISOString()
+      });
+    }
 
     await batch.commit();
   },
