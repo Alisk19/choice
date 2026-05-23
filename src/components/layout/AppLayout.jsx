@@ -35,7 +35,8 @@ export default function AppLayout() {
           setInventory(data);
           setInitialized(true);
         },
-        () => {
+        (error) => {
+          console.error("Inventory sync error:", error);
           clearTimeout(fallbackTimer);
           setInitialized(true);
         }
@@ -43,12 +44,12 @@ export default function AppLayout() {
 
       salesUnsub = dbService.subscribeToSales(
         (data) => { setSalesData(data); },
-        () => {}
+        (error) => { console.error("Sales sync error:", error); }
       );
       
       moneyUnsub = dbService.subscribeToMoneyTransactions(
         (data) => { setMoneyTransactions(data); },
-        () => {}
+        (error) => { console.error("Money transactions sync error:", error); }
       );
     } catch (error) {
       clearTimeout(fallbackTimer);
