@@ -8,7 +8,11 @@ import { useDateFilter } from '../hooks/useDateFilter';
 import { DATE_RANGES } from '../utils/dateFilters';
 import StatCard from '../components/ui/StatCard';
 import BrandFilter from '../components/ui/BrandFilter';
+import DetailsModal from '../components/ui/DetailsModal';
+import EditStockModal from '../components/ui/EditStockModal';
+import { normalizeBrand } from '../utils/brandHelper';
 import confetti from 'canvas-confetti';
+import { Edit2 } from 'lucide-react';
 
 const StatusBadge = ({ status, quantity }) => {
   if (status !== 'Sold' && Number(quantity) < 5) {
@@ -35,6 +39,11 @@ export default function Stock() {
   const [soldModalOpen, setSoldModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [soldForm, setSoldForm] = useState({ soldPrice: '', customerName: '', customerPhone: '', paymentMethod: 'Cash' });
+  
+  const [activeModal, setActiveModal] = useState(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [itemToEdit, setItemToEdit] = useState(null);
+  
   const itemsPerPage = 10;
 
   const statusFilters = ['Overall Stock', 'Ready Stock', 'Sold Stock', 'Low Stock'];
@@ -55,11 +64,12 @@ export default function Stock() {
         (item.brand || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         String(item.imei || '').includes(searchTerm);
       
+      const normItemBrand = normalizeBrand(item.brand);
       const matchesBrand = activeBrand === 'All Brands' 
         ? true 
         : activeBrand === 'Other' 
-          ? !['apple', 'samsung', 'oneplus', 'xiaomi', 'vivo', 'oppo'].includes((item.brand || '').toLowerCase())
-          : (item.brand || '').toLowerCase() === activeBrand.toLowerCase();
+          ? !['Apple', 'Samsung', 'OnePlus', 'Xiaomi', 'Vivo', 'Oppo'].includes(normItemBrand)
+          : normItemBrand === activeBrand;
       
       let matchesStatus = true;
       if (activeStatusFilter === 'Ready Stock') {
@@ -83,11 +93,31 @@ export default function Stock() {
     });
   }, [inventory, searchTerm, activeStatusFilter, activeBrand, filterDataByDate]);
 
-  // Analytics for currently filtered data
-  const totalItems = filteredInventory.length;
-  const readyStockCount = filteredInventory.filter(item => item.status === 'In Stock' || item.status === 'Low Stock').length;
-  const soldStockCount = filteredInventory.filter(item => item.status === 'Sold').length;
-  const totalPurchaseValue = filteredInventory.reduce((acc, item) => acc + Number(item.purchasePrice || 0), 0);
+  // Create a version of filtered inventory WITHOUT date filtering for the summary cards
+  const cardInventory = useMemo(() => {
+    return inventory.filter(item => {
+      const matchesSearch =
+        (item.modelName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.brand || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(item.imei || '').includes(searchTerm);
+      
+      const normItemBrand = normalizeBrand(item.brand);
+      const matchesBrand = activeBrand === 'All Brands' 
+        ? true 
+        : activeBrand === 'Other' 
+          ? !['Apple', 'Samsung', 'OnePlus', 'Xiaomi', 'Vivo', 'Oppo'].includes(normItemBrand)
+          : normItemBrand === activeBrand;
+      
+      return matchesSearch && matchesBrand;
+    });
+  }, [inventory, searchTerm, activeBrand]);
+
+  const totalItems = cardInventory.length;
+  const readyStockItems = cardInventory.filter(item => item.status === 'In Stock' || item.status === 'Low Stock');
+  const readyStockCount = readyStockItems.length;
+  const soldStockItems = cardInventory.filter(item => item.status === 'Sold');
+  const soldStockCount = soldStockItems.length;
+  const totalPurchaseValue = cardInventory.reduce((acc, item) => acc + Number(item.purchasePrice || 0), 0);
 
   const totalPages = Math.ceil(filteredInventory.length / itemsPerPage) || 1;
   const paginatedData = filteredInventory.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -107,6 +137,28 @@ export default function Stock() {
     setSelectedItem(item);
     setSoldForm({ soldPrice: item.purchasePrice || '', customerName: '', customerPhone: '', paymentMethod: 'Cash' });
     setSoldModalOpen(true);
+  };
+
+  const handleOpenEditModal = (item) => {
+    setItemToEdit(item);
+    setEditModalOpen(true);
+  };
+
+  const handleSaveEdit = async (updatedData) => {
+    try {
+      if (updatedData.imei !== itemToEdit.imei) {
+        const exists = inventory.some(item => item.imei === updatedData.imei && item.id !== itemToEdit.id);
+        if (exists) {
+          toast.error('IMEI already exists in another item');
+          return;
+        }
+      }
+      await dbService.updateProduct(updatedData.id, updatedData);
+      toast.success('Product updated successfully');
+      setEditModalOpen(false);
+    } catch (error) {
+      toast.error('Failed to update product');
+    }
   };
 
   const handleMarkAsSoldSubmit = async (e) => {
@@ -130,6 +182,30 @@ export default function Stock() {
       setSoldModalOpen(false);
     }
   };
+
+  const handleCardClick = (type) => {
+    if (type === 'Overall Stock') {
+      setActiveModal({ title: 'Overall Stock', value: totalItems, data: cardInventory });
+    } else if (type === 'Ready Stock') {
+      setActiveModal({ title: 'Ready Stock', value: readyStockCount, data: readyStockItems });
+    } else if (type === 'Sold Stock') {
+      setActiveModal({ title: 'Sold Stock', value: soldStockCount, data: soldStockItems });
+    }
+  };
+
+  const renderModalRow = (item) => (
+    <tr key={item.id} className="hover:bg-neutral-50/50 dark:hover:bg-white/5 transition-colors">
+      <td className="px-6 py-4 text-sm font-bold text-neutral-900 dark:text-white">{item.brand} {item.modelName}</td>
+      <td className="px-6 py-4 text-sm font-mono text-neutral-500 dark:text-neutral-400">{item.imei}</td>
+      <td className="px-6 py-4 text-sm font-bold text-right text-neutral-900 dark:text-white">₹{Number(item.purchasePrice || 0).toLocaleString()}</td>
+      <td className="px-6 py-4 text-center">
+        <span className="inline-flex px-2 py-1 text-xs font-bold rounded-full bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white">{item.quantity}</span>
+      </td>
+      <td className="px-6 py-4">
+        <StatusBadge status={item.status} quantity={item.quantity} />
+      </td>
+    </tr>
+  );
 
   const inputClass = "w-full px-4 py-2.5 bg-white dark:bg-neutral-950/60 border border-neutral-200 dark:border-white/10 rounded-xl text-sm font-medium text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all";
 
@@ -191,9 +267,9 @@ export default function Stock() {
 
       {/* Analytics Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <StatCard title="Total Items" value={totalItems} icon={Package} iconColor="text-blue-400" iconBg="bg-blue-500/10 border-blue-500/20" />
-        <StatCard title="Ready Stock" value={readyStockCount} icon={ShoppingCart} iconColor="text-emerald-400" iconBg="bg-emerald-500/10 border-emerald-500/20" />
-        <StatCard title="Sold Stock" value={soldStockCount} icon={TrendingUp} iconColor="text-purple-400" iconBg="bg-purple-500/10 border-purple-500/20" />
+        <StatCard title="Total Items" value={totalItems} icon={Package} iconColor="text-blue-400" iconBg="bg-blue-500/10 border-blue-500/20" onClick={() => handleCardClick('Overall Stock')} />
+        <StatCard title="Ready Stock" value={readyStockCount} icon={ShoppingCart} iconColor="text-emerald-400" iconBg="bg-emerald-500/10 border-emerald-500/20" onClick={() => handleCardClick('Ready Stock')} />
+        <StatCard title="Sold Stock" value={soldStockCount} icon={TrendingUp} iconColor="text-purple-400" iconBg="bg-purple-500/10 border-purple-500/20" onClick={() => handleCardClick('Sold Stock')} />
         <StatCard title="Purchase Value" value={`₹${(totalPurchaseValue/1000).toFixed(1)}k`} icon={DollarSign} iconColor="text-cyan-400" iconBg="bg-cyan-500/10 border-cyan-500/20" />
       </div>
 
@@ -272,6 +348,9 @@ export default function Stock() {
                           <CheckCircle className="w-5 h-5" />
                         </button>
                       )}
+                      <button onClick={() => handleOpenEditModal(item)} className="p-2 rounded-xl text-indigo-500 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-400/10 transition-colors border border-transparent hover:border-indigo-200 dark:hover:border-indigo-400/20" title="Edit">
+                        <Edit2 className="w-5 h-5" />
+                      </button>
                       <button onClick={() => handleDelete(item.id)} className="p-2 rounded-xl text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-400/10 transition-colors border border-transparent hover:border-red-200 dark:hover:border-red-400/20" title="Delete">
                         <Trash2 className="w-5 h-5" />
                       </button>
@@ -367,6 +446,25 @@ export default function Stock() {
           </div>
         )}
       </AnimatePresence>
+
+      <EditStockModal
+        isOpen={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        item={itemToEdit}
+        onSave={handleSaveEdit}
+      />
+
+      {activeModal && (
+        <DetailsModal
+          isOpen={!!activeModal}
+          onClose={() => setActiveModal(null)}
+          title={activeModal.title}
+          value={activeModal.value}
+          data={activeModal.data}
+          columns={['Product', 'IMEI', {label: 'Price', align: 'right'}, {label: 'Qty', align: 'center'}, 'Status']}
+          renderRow={renderModalRow}
+        />
+      )}
     </div>
   );
 }

@@ -11,6 +11,7 @@ import { format, parseISO, isValid } from 'date-fns';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
 import StatCard from '../components/ui/StatCard';
+import DetailsModal from '../components/ui/DetailsModal';
 
 const safeFormatDate = (dateString) => {
   try {
@@ -43,6 +44,8 @@ export default function MoneyTransactions() {
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedTx, setSelectedTx] = useState(null);
   const [paymentForm, setPaymentForm] = useState({ amount: '', date: new Date().toISOString().split('T')[0], notes: '' });
+  
+  const [activeModal, setActiveModal] = useState(null);
 
   const handleOpenPaymentModal = (tx) => {
     setSelectedTx(tx);
@@ -229,6 +232,37 @@ export default function MoneyTransactions() {
     return given - paid;
   };
 
+  const handleCardClick = (type) => {
+    if (type === 'Total Given') {
+      setActiveModal({ title: 'Total Given', value: `₹${totalGiven.toLocaleString()}`, data: transactions });
+    } else if (type === 'Total Paid') {
+      setActiveModal({ title: 'Total Paid', value: `₹${totalPaid.toLocaleString()}`, data: transactions.filter(t => (Number(t.amountPaid) || 0) > 0) });
+    } else if (type === 'Total Remaining') {
+      setActiveModal({ title: 'Total Remaining', value: `₹${totalRemaining.toLocaleString()}`, data: transactions.filter(t => (Number(t.remainingAmount) || 0) > 0) });
+    } else if (type === 'Pending Records') {
+      setActiveModal({ title: 'Pending Records', value: pendingCount, data: transactions.filter(t => t.status !== 'Paid') });
+    }
+  };
+
+  const renderModalRow = (item) => (
+    <tr key={item.id} className="hover:bg-white/5 transition-colors">
+      <td className="px-6 py-4">
+        <div className="font-extrabold text-white text-base">{item.name}</div>
+        <div className="text-xs font-medium text-neutral-400">{item.mobileNumber}</div>
+      </td>
+      <td className="px-6 py-4 text-right font-extrabold text-white">₹{Number(item.amountGiven || 0).toLocaleString()}</td>
+      <td className="px-6 py-4 text-right font-extrabold text-emerald-400">₹{Number(item.amountPaid || 0).toLocaleString()}</td>
+      <td className="px-6 py-4 text-right font-extrabold text-rose-400">₹{Number(item.remainingAmount || 0).toLocaleString()}</td>
+      <td className="px-6 py-4 text-center">
+        <span className={`inline-flex px-2 py-1 text-xs font-bold rounded-full border ${
+          item.status === 'Paid' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+          item.status === 'Partially Paid' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+          'bg-rose-500/10 text-rose-400 border-rose-500/20'
+        }`}>{item.status}</span>
+      </td>
+    </tr>
+  );
+
   return (
     <div className="space-y-8 pb-20">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
@@ -250,10 +284,10 @@ export default function MoneyTransactions() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <StatCard title="Total Given" value={`₹${totalGiven.toLocaleString()}`} icon={ArrowRightLeft} iconColor="text-indigo-400" iconBg="bg-indigo-500/10 border-indigo-500/20" />
-        <StatCard title="Total Paid" value={`₹${totalPaid.toLocaleString()}`} icon={Banknote} iconColor="text-emerald-400" iconBg="bg-emerald-500/10 border-emerald-500/20" />
-        <StatCard title="Total Remaining" value={`₹${totalRemaining.toLocaleString()}`} icon={Wallet} iconColor="text-rose-400" iconBg="bg-rose-500/10 border-rose-500/20" />
-        <StatCard title="Pending Records" value={pendingCount} icon={CreditCard} iconColor="text-amber-400" iconBg="bg-amber-500/10 border-amber-500/20" />
+        <StatCard title="Total Given" value={`₹${totalGiven.toLocaleString()}`} icon={ArrowRightLeft} iconColor="text-indigo-400" iconBg="bg-indigo-500/10 border-indigo-500/20" onClick={() => handleCardClick('Total Given')} />
+        <StatCard title="Total Paid" value={`₹${totalPaid.toLocaleString()}`} icon={Banknote} iconColor="text-emerald-400" iconBg="bg-emerald-500/10 border-emerald-500/20" onClick={() => handleCardClick('Total Paid')} />
+        <StatCard title="Total Remaining" value={`₹${totalRemaining.toLocaleString()}`} icon={Wallet} iconColor="text-rose-400" iconBg="bg-rose-500/10 border-rose-500/20" onClick={() => handleCardClick('Total Remaining')} />
+        <StatCard title="Pending Records" value={pendingCount} icon={CreditCard} iconColor="text-amber-400" iconBg="bg-amber-500/10 border-amber-500/20" onClick={() => handleCardClick('Pending Records')} />
       </div>
 
       <motion.div 
@@ -599,6 +633,18 @@ export default function MoneyTransactions() {
           </div>
         )}
       </AnimatePresence>
+      
+      {activeModal && (
+        <DetailsModal
+          isOpen={!!activeModal}
+          onClose={() => setActiveModal(null)}
+          title={activeModal.title}
+          value={activeModal.value}
+          data={activeModal.data}
+          columns={['Name & Contact', {label: 'Given', align: 'right'}, {label: 'Paid', align: 'right'}, {label: 'Remaining', align: 'right'}, {label: 'Status', align: 'center'}]}
+          renderRow={renderModalRow}
+        />
+      )}
     </div>
   );
 }

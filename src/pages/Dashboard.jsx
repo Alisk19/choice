@@ -10,7 +10,9 @@ import { motion } from 'framer-motion';
 import { useDateFilter } from '../hooks/useDateFilter';
 import { DATE_RANGES } from '../utils/dateFilters';
 import StatCard from '../components/ui/StatCard';
+import DetailsModal from '../components/ui/DetailsModal';
 import ActivityFeed from '../components/Dashboard/ActivityFeed';
+import { normalizeBrand } from '../utils/brandHelper';
 
 const COLORS = ['#6366f1', '#22d3ee', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
@@ -32,6 +34,7 @@ const safeParseISO = (dateStr) => {
 export default function Dashboard() {
   const inventory = useStore((state) => state.inventory);
   const salesData = useStore((state) => state.salesData);
+  const [activeModal, setActiveModal] = useState(null);
 
   const {
     selectedRange, setSelectedRange, customStartDate, setCustomStartDate, customEndDate, setCustomEndDate, filterDataByDate
@@ -57,7 +60,10 @@ export default function Dashboard() {
   const getBrandDistribution = () => {
     const brands = {};
     readyStockItems.forEach(item => {
-      if (item.brand) brands[item.brand] = (brands[item.brand] || 0) + Number(item.quantity || 1);
+      if (item.brand) {
+        const normBrand = normalizeBrand(item.brand);
+        brands[normBrand] = (brands[normBrand] || 0) + Number(item.quantity || 1);
+      }
     });
     return Object.entries(brands).map(([name, value]) => ({ name, value }));
   };
@@ -77,6 +83,48 @@ export default function Dashboard() {
     return sorted.slice(-30); 
   };
   const salesTrendData = getSalesTrend();
+
+  const handleCardClick = (type) => {
+    if (type === 'Overall Stock') {
+      setActiveModal({ title: 'Overall Stock', value: overallStock, data: inventory, type: 'stock' });
+    } else if (type === 'Ready Stock') {
+      setActiveModal({ title: 'Ready Stock', value: readyStock, data: readyStockItems, type: 'stock' });
+    } else if (type === 'Sold Stock') {
+      setActiveModal({ title: 'Sold Stock', value: soldStock, data: inventory.filter(item => item.status === 'Sold'), type: 'stock' });
+    } else if (type === 'Total Sales Value') {
+      setActiveModal({ title: 'Total Sales Value', value: `₹${totalSalesValue.toLocaleString()}`, data: filteredSales, type: 'sales' });
+    } else if (type === 'Total Profit') {
+      setActiveModal({ title: 'Total Profit', value: `₹${totalProfit.toLocaleString()}`, data: filteredSales, type: 'sales' });
+    } else if (type === 'Low Stock Items') {
+      setActiveModal({ title: 'Low Stock Items', value: lowStockCount, data: lowStockItems, type: 'stock' });
+    }
+  };
+
+  const renderStockRow = (item, idx) => (
+    <tr key={item.id} className="hover:bg-neutral-50/50 dark:hover:bg-white/5 transition-colors">
+      <td className="px-6 py-4 text-sm font-bold text-neutral-900 dark:text-white">{item.brand} {item.modelName}</td>
+      <td className="px-6 py-4 text-sm font-mono text-neutral-500 dark:text-neutral-400">{item.imei}</td>
+      <td className="px-6 py-4 text-sm font-bold text-right text-neutral-900 dark:text-white">₹{Number(item.purchasePrice || 0).toLocaleString()}</td>
+      <td className="px-6 py-4 text-center">
+        <span className="inline-flex px-2 py-1 text-xs font-bold rounded-full bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white">{item.quantity}</span>
+      </td>
+      <td className="px-6 py-4">
+        <span className={`inline-flex px-2.5 py-1 text-xs font-bold rounded-full border ${item.status === 'Sold' ? 'bg-rose-400/10 text-rose-400 border-rose-400/20' : Number(item.quantity || 1) < 5 ? 'bg-amber-400/10 text-amber-400 border-amber-400/20' : 'bg-emerald-400/10 text-emerald-400 border-emerald-400/20'}`}>
+          {item.status}
+        </span>
+      </td>
+    </tr>
+  );
+
+  const renderSalesRow = (item, idx) => (
+    <tr key={item.id} className="hover:bg-neutral-50/50 dark:hover:bg-white/5 transition-colors">
+      <td className="px-6 py-4 text-sm font-bold text-neutral-900 dark:text-white">{item.brandName || item.brand} {item.modelName}</td>
+      <td className="px-6 py-4 text-sm font-mono text-neutral-500 dark:text-neutral-400">{item.imeiNumber || item.imei}</td>
+      <td className="px-6 py-4 text-sm font-bold text-neutral-900 dark:text-white">{item.customerName || 'Walk-in'}</td>
+      <td className="px-6 py-4 text-sm font-bold text-right text-emerald-500 dark:text-emerald-400">₹{Number(item.soldPrice || 0).toLocaleString()}</td>
+      <td className="px-6 py-4 text-sm font-bold text-right text-cyan-500 dark:text-cyan-400">+₹{Number(item.profit || 0).toLocaleString()}</td>
+    </tr>
+  );
 
   return (
     <div className="space-y-8 pb-20">
@@ -110,13 +158,13 @@ export default function Dashboard() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <StatCard title="Overall Stock" value={overallStock} icon={Package} iconColor="text-blue-400" iconBg="bg-blue-500/10 border-blue-500/20" />
-        <StatCard title="Ready Stock" value={readyStock} icon={ShoppingCart} iconColor="text-emerald-400" iconBg="bg-emerald-500/10 border-emerald-500/20" />
-        <StatCard title="Sold Stock" value={soldStock} icon={TrendingUp} iconColor="text-purple-400" iconBg="bg-purple-500/10 border-purple-500/20" />
+        <StatCard title="Overall Stock" value={overallStock} icon={Package} iconColor="text-blue-400" iconBg="bg-blue-500/10 border-blue-500/20" onClick={() => handleCardClick('Overall Stock')} />
+        <StatCard title="Ready Stock" value={readyStock} icon={ShoppingCart} iconColor="text-emerald-400" iconBg="bg-emerald-500/10 border-emerald-500/20" onClick={() => handleCardClick('Ready Stock')} />
+        <StatCard title="Sold Stock" value={soldStock} icon={TrendingUp} iconColor="text-purple-400" iconBg="bg-purple-500/10 border-purple-500/20" onClick={() => handleCardClick('Sold Stock')} />
         
-        <StatCard title="Total Sales Value" value={`₹${totalSalesValue.toLocaleString()}`} icon={DollarSign} trend="up" trendValue="Filtered" iconColor="text-cyan-400" iconBg="bg-cyan-500/10 border-cyan-500/20" />
-        <StatCard title="Total Profit" value={`₹${totalProfit.toLocaleString()}`} icon={Activity} trend="up" trendValue="Filtered" iconColor="text-amber-400" iconBg="bg-amber-500/10 border-amber-500/20" />
-        <StatCard title="Low Stock Items" value={lowStockCount} icon={AlertTriangle} trend={lowStockCount > 0 ? "down" : "up"} trendValue={lowStockCount > 0 ? "Needs Restock" : "Optimal"} iconColor="text-red-400" iconBg="bg-red-500/10 border-red-500/20" />
+        <StatCard title="Total Sales Value" value={`₹${totalSalesValue.toLocaleString()}`} icon={DollarSign} trend="up" trendValue="Filtered" iconColor="text-cyan-400" iconBg="bg-cyan-500/10 border-cyan-500/20" onClick={() => handleCardClick('Total Sales Value')} />
+        <StatCard title="Total Profit" value={`₹${totalProfit.toLocaleString()}`} icon={Activity} trend="up" trendValue="Filtered" iconColor="text-amber-400" iconBg="bg-amber-500/10 border-amber-500/20" onClick={() => handleCardClick('Total Profit')} />
+        <StatCard title="Low Stock Items" value={lowStockCount} icon={AlertTriangle} trend={lowStockCount > 0 ? "down" : "up"} trendValue={lowStockCount > 0 ? "Needs Restock" : "Optimal"} iconColor="text-red-400" iconBg="bg-red-500/10 border-red-500/20" onClick={() => handleCardClick('Low Stock Items')} />
       </div>
 
       {/* Charts & Feed Row */}
@@ -203,6 +251,20 @@ export default function Dashboard() {
           <ActivityFeed inventory={inventory} salesData={salesData} />
         </motion.div>
       </div>
+
+      {activeModal && (
+        <DetailsModal
+          isOpen={!!activeModal}
+          onClose={() => setActiveModal(null)}
+          title={activeModal.title}
+          value={activeModal.value}
+          data={activeModal.data}
+          columns={activeModal.type === 'stock' 
+            ? ['Product', 'IMEI', {label: 'Price', align: 'right'}, {label: 'Qty', align: 'center'}, 'Status'] 
+            : ['Product', 'IMEI', 'Customer', {label: 'Sold Price', align: 'right'}, {label: 'Profit', align: 'right'}]}
+          renderRow={activeModal.type === 'stock' ? renderStockRow : renderSalesRow}
+        />
+      )}
 
     </div>
   );

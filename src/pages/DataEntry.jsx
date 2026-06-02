@@ -3,8 +3,9 @@ import { useStore } from '../store/useStore';
 import { dbService } from '../services/db';
 import { PackagePlus, Smartphone, LayoutGrid, Check } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
+import { STANDARD_BRANDS, normalizeBrand } from '../utils/brandHelper';
 
 const InputField = ({ label, name, type = 'text', required = false, placeholder = '', formData, handleChange, errors }) => (
   <div className="space-y-1.5 relative group">
@@ -44,8 +45,10 @@ export default function DataEntry() {
     customerName: '',
     customerPhone: '',
     purchaseFrom: '',
+    purchaseFrom: '',
     mobileNumber: '',
-    notes: ''
+    notes: '',
+    otherBrand: ''
   };
 
   const [formData, setFormData] = useState(initialFormState);
@@ -57,6 +60,7 @@ export default function DataEntry() {
     const newErrors = {};
     if (!formData.modelName) newErrors.modelName = 'Model Name is required';
     if (!formData.brand) newErrors.brand = 'Brand is required';
+    if (formData.brand === 'Other' && !formData.otherBrand) newErrors.otherBrand = 'Please specify the brand';
     
     if (!formData.imei) {
       newErrors.imei = 'IMEI is required';
@@ -110,7 +114,13 @@ export default function DataEntry() {
         return;
       }
 
-      await dbService.addProduct(formData);
+      const dataToSave = {
+        ...formData,
+        brand: formData.brand === 'Other' ? normalizeBrand(formData.otherBrand) : formData.brand
+      };
+      delete dataToSave.otherBrand;
+
+      await dbService.addProduct(dataToSave);
       toast.success('Product added successfully!');
       
       confetti({
@@ -154,7 +164,37 @@ export default function DataEntry() {
                 </div>
                 <h2 className="text-lg font-extrabold text-neutral-900 dark:text-white tracking-wide">Device Specifications</h2>
               </div>
-              <InputField formData={formData} handleChange={handleChange} errors={errors} label="Brand Name" name="brand" required placeholder="e.g. Apple, Samsung" />
+              <div className="space-y-1.5 relative group">
+                <label className="text-sm font-bold text-neutral-700 dark:text-neutral-300 ml-1">
+                  Brand Name <span className="text-indigo-500">*</span>
+                </label>
+                <select
+                  name="brand"
+                  value={formData.brand}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 bg-white dark:bg-neutral-900/50 border border-neutral-200 dark:border-white/10 rounded-xl text-sm font-medium transition-all text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 hover:border-neutral-300 dark:hover:border-white/20 appearance-none cursor-pointer"
+                >
+                  <option value="" disabled className="bg-white dark:bg-neutral-900">Select Brand</option>
+                  {STANDARD_BRANDS.map(b => (
+                    <option key={b} value={b} className="bg-white dark:bg-neutral-900">{b}</option>
+                  ))}
+                  <option value="Other" className="bg-white dark:bg-neutral-900 font-bold">Other</option>
+                </select>
+                {errors.brand && (
+                  <motion.p initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="text-xs text-pink-500 font-bold mt-1 ml-1">
+                    {errors.brand}
+                  </motion.p>
+                )}
+              </div>
+              
+              <AnimatePresence>
+                {formData.brand === 'Other' && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
+                    <InputField formData={formData} handleChange={handleChange} errors={errors} label="Specify Brand" name="otherBrand" required placeholder="Enter brand name" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <InputField formData={formData} handleChange={handleChange} errors={errors} label="Model Name" name="modelName" required placeholder="e.g. iPhone 15 Pro Max" />
               <InputField formData={formData} handleChange={handleChange} errors={errors} label="IMEI / Serial Number" name="imei" required placeholder="15-digit unique ID" />
               <div className="grid grid-cols-2 gap-4">

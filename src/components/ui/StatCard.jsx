@@ -1,13 +1,16 @@
 import { motion } from 'framer-motion';
 
-export default function StatCard({ title, value, icon: Icon, trend, trendValue, iconColor = 'text-indigo-400', iconBg = 'bg-indigo-500/10 border-indigo-500/20' }) {
+export default function StatCard({ title, value, icon: Icon, trend, trendValue, iconColor = 'text-indigo-400', iconBg = 'bg-indigo-500/10 border-indigo-500/20', onClick }) {
+  const isClickable = !!onClick;
+  
   return (
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -5, scale: 1.02, rotateX: 2, rotateY: 2 }}
+      whileHover={isClickable ? { y: -5, scale: 1.02, rotateX: 2, rotateY: 2 } : { y: -2 }}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
-      className="glass-card p-6 flex flex-col gap-4 relative overflow-hidden group"
+      onClick={onClick}
+      className={`glass-card p-6 flex flex-col gap-4 relative overflow-hidden group ${isClickable ? 'cursor-pointer hover:shadow-lg hover:shadow-indigo-500/10' : ''}`}
     >
       <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
         <Icon className={`w-16 h-16 ${iconColor.replace('text-', 'text-')}`} />

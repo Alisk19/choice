@@ -9,6 +9,10 @@ import { useDateFilter } from '../hooks/useDateFilter';
 import { DATE_RANGES } from '../utils/dateFilters';
 import toast from 'react-hot-toast';
 import { dbService } from '../services/db';
+import { normalizeBrand } from '../utils/brandHelper';
+import DetailsModal from '../components/ui/DetailsModal';
+import EditStockModal from '../components/ui/EditStockModal';
+import { Edit2 } from 'lucide-react';
 
 const safeFormatDate = (dateString) => {
   try {
@@ -32,6 +36,9 @@ export default function Sales() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [activeModal, setActiveModal] = useState(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [itemToEdit, setItemToEdit] = useState(null);
   const itemsPerPage = 10;
 
   const {
@@ -65,26 +72,71 @@ export default function Sales() {
   const totalPages = Math.ceil(soldItems.length / itemsPerPage) || 1;
   const paginatedData = soldItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  const totalSalesValue = soldItems.reduce((sum, item) => sum + Number(item.soldPrice || 0), 0);
-  const totalProfitValue = soldItems.reduce((sum, item) => sum + Number(item.profit || 0), 0);
-  const totalUnitsSold = soldItems.length;
-  const averageProfit = totalUnitsSold > 0 ? (totalProfitValue / totalUnitsSold).toFixed(0) : 0;
+  const totalRevenue = soldItems.reduce((sum, item) => sum + Number(item.soldPrice || 0), 0);
+  const totalProfit = soldItems.reduce((sum, item) => sum + Number(item.profit || 0), 0);
+  const avgProfit = soldItems.length > 0 ? (totalProfit / soldItems.length) : 0;
 
   const printInvoice = (item) => {
     navigate('/invoice', { state: { item } });
   };
 
-  const handleDeleteSale = async (item) => {
-    if (window.confirm(`Are you sure you want to delete this sale for ${item.modelName}? The product will be returned to inventory.`)) {
+  const handleCardClick = (type) => {
+    if (type === 'Revenue') {
+      setActiveModal({ title: 'Revenue', value: `₹${(totalRevenue/1000).toFixed(1)}k`, data: soldItems });
+    } else if (type === 'Net Profit') {
+      setActiveModal({ title: 'Net Profit', value: `₹${(totalProfit/1000).toFixed(1)}k`, data: soldItems.filter(item => (Number(item.profit) || 0) > 0) });
+    } else if (type === 'Units Sold') {
+      setActiveModal({ title: 'Units Sold', value: soldItems.length, data: soldItems });
+    } else if (type === 'Avg. Profit') {
+      setActiveModal({ title: 'Avg. Profit', value: `₹${Math.round(avgProfit)}`, data: soldItems });
+    }
+  };
+
+  const handleOpenEditModal = (item) => {
+    const editableItem = {
+      ...item,
+      brand: item.brandName,
+      purchasePrice: item.purchasePrice,
+      imei: item.imeiNumber,
+      status: 'Sold',
+      quantity: 1,
+    };
+    setItemToEdit(editableItem);
+    setEditModalOpen(true);
+  };
+
+  const handleSaveEdit = async (updatedData) => {
+    try {
+      const productId = updatedData.productId || updatedData.id;
+      await dbService.updateProduct(productId, {
+        brand: updatedData.brand,
+        modelName: updatedData.modelName,
+        imei: updatedData.imei,
+        purchasePrice: updatedData.purchasePrice,
+      });
+      toast.success('Sale record updated successfully');
+      setEditModalOpen(false);
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to update sale record');
+    }
+  };
+
+  const renderModalRow = (item) => (
+    <tr key={item.id} className="hover:bg-neutral-50/50 dark:hover:bg-white/5 transition-colors">
+      <td className="px-6 py-4 text-sm font-bold text-neutral-900 dark:text-white">{normalizeBrand(item.brandName || item.brand)} {item.modelName}</td>
+      <td className="px-6 py-4 text-sm font-mono text-neutral-500 dark:text-neutral-400">{item.imeiNumber || item.imei}</td>
+      <td className="px-6 py-4 text-sm font-bold text-neutral-900 dark:text-white">{item.customerName || 'Walk-in'}</td>
+      <td className="px-6 py-4 text-sm font-bold text-right text-emerald-500 dark:text-emerald-400">₹{Number(item.soldPrice || 0).toLocaleString()}</td>
+      <td className="px-6 py-4 text-sm font-bold text-right text-cyan-500 dark:text-cyan-400">+₹{Number(item.profit || 0).toLocaleString()}</td>
+    </tr>
+  );
+
+  const handleDeleteSale = async (id, productId) => {
+    if (window.confirm('Are you sure you want to delete this sale? The product will be returned to inventory.')) {
       try {
-        await dbService.deleteSale(item.id, item.productId);
-        toast.success('Sale deleted successfully. Product returned to inventory.', {
-          style: {
-            background: '#18181b',
-            color: '#fff',
-            border: '1px solid #27272a'
-          }
-        });
+        await dbService.deleteSale(id, productId);
+        toast.success('Sale deleted successfully.');
       } catch (error) {
         console.error("Error deleting sale: ", error);
         toast.error('Failed to delete sale.');
@@ -100,7 +152,7 @@ export default function Sales() {
       ...soldItems.map(item => [
         safeFormatDate(item.soldDate || item.createdAt),
         item.invoiceNumber || 'N/A',
-        item.brandName || '',
+        normalizeBrand(item.brandName || ''),
         item.modelName || '',
         item.imeiNumber || '',
         `"${item.customerName || 'Walk-in'}"`,
@@ -132,7 +184,6 @@ export default function Sales() {
           <p className="text-neutral-400 mt-2 text-lg font-medium">Advanced filtering, analytics, and record tracking.</p>
         </div>
 
-        {/* Filter Section */}
         <div className="flex flex-col sm:flex-row items-center gap-3 bg-neutral-900/60 p-2.5 rounded-2xl border border-white/10 backdrop-blur-md">
           <div className="flex items-center gap-2 px-2">
             <Calendar className="w-5 h-5 text-indigo-400" />
@@ -164,7 +215,25 @@ export default function Sales() {
         </div>
       </div>
 
-      {/* Quick Filters */}
+      <EditStockModal
+        isOpen={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        item={itemToEdit}
+        onSave={handleSaveEdit}
+      />
+
+      {activeModal && (
+        <DetailsModal
+          isOpen={!!activeModal}
+          onClose={() => setActiveModal(null)}
+          title={activeModal.title}
+          value={activeModal.value}
+          data={activeModal.data}
+          columns={['Product', 'IMEI', 'Customer', {label: 'Sold Price', align: 'right'}, {label: 'Profit', align: 'right'}]}
+          renderRow={renderModalRow}
+        />
+      )}
+
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
         {quickFilters.map(filter => (
           <button
@@ -177,13 +246,11 @@ export default function Sales() {
         ))}
       </div>
 
-      {/* Analytics Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-        <StatCard title="Revenue" value={`₹${(totalSalesValue/1000).toFixed(1)}k`} icon={DollarSign} iconColor="text-emerald-400" iconBg="bg-emerald-500/10 border-emerald-500/20" />
-        <StatCard title="Net Profit" value={`₹${(totalProfitValue/1000).toFixed(1)}k`} icon={TrendingUp} iconColor="text-cyan-400" iconBg="bg-cyan-500/10 border-cyan-500/20" />
-        <StatCard title="Units Sold" value={totalUnitsSold} icon={Box} iconColor="text-blue-400" iconBg="bg-blue-500/10 border-blue-500/20" />
-        <StatCard title="Avg. Profit" value={`₹${averageProfit}`} icon={PieChartIcon} iconColor="text-purple-400" iconBg="bg-purple-500/10 border-purple-500/20" />
-        <StatCard title="Sales Count" value={soldItems.length} icon={Hash} iconColor="text-amber-400" iconBg="bg-amber-500/10 border-amber-500/20" />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <StatCard title="Revenue" value={`₹${(totalRevenue/1000).toFixed(1)}k`} icon={DollarSign} iconColor="text-emerald-400" iconBg="bg-emerald-500/10 border-emerald-500/20" onClick={() => handleCardClick('Revenue')} />
+        <StatCard title="Net Profit" value={`₹${(totalProfit/1000).toFixed(1)}k`} icon={TrendingUp} iconColor="text-cyan-400" iconBg="bg-cyan-500/10 border-cyan-500/20" onClick={() => handleCardClick('Net Profit')} />
+        <StatCard title="Units Sold" value={soldItems.length} icon={Box} iconColor="text-indigo-400" iconBg="bg-indigo-500/10 border-indigo-500/20" onClick={() => handleCardClick('Units Sold')} />
+        <StatCard title="Avg. Profit" value={`₹${Math.round(avgProfit)}`} icon={PieChartIcon} iconColor="text-purple-400" iconBg="bg-purple-500/10 border-purple-500/20" onClick={() => handleCardClick('Avg. Profit')} />
       </div>
 
       <motion.div 
@@ -241,7 +308,7 @@ export default function Sales() {
                       </div>
                     </td>
                     <td className="px-5 py-4">
-                      <div className="font-bold text-white text-sm">{item.brandName} {item.modelName}</div>
+                      <div className="font-bold text-white text-sm">{normalizeBrand(item.brandName)} {item.modelName}</div>
                       <div className="text-xs font-medium text-neutral-500 mt-1">{item.imeiNumber}</div>
                     </td>
                     <td className="px-5 py-4">
@@ -264,21 +331,20 @@ export default function Sales() {
                     <td className="px-5 py-4 text-right font-extrabold text-cyan-400 text-base">
                       +₹{Number(item.profit).toLocaleString()}
                     </td>
-                    <td className="px-5 py-4 text-center">
-                      <div className="flex items-center justify-center gap-2">
+                    <td className="px-5 py-4">
+                      <div className="flex justify-center gap-2">
                         <button 
-                          onClick={() => printInvoice({
-                             ...item, 
-                             imei: item.imeiNumber, 
-                             brand: item.brandName
-                          })}
-                          className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-white bg-white/10 hover:bg-indigo-500 transition-all border border-white/5 shadow-sm group-hover:border-indigo-400/30"
+                          onClick={() => printInvoice({ ...item, imei: item.imeiNumber, brand: item.brandName })}
+                          className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-white bg-white/10 hover:bg-indigo-500 transition-all border border-white/5 shadow-sm"
                         >
                           <Printer className="w-3.5 h-3.5" />
                           Print
                         </button>
+                        <button onClick={() => handleOpenEditModal(item)} className="p-2 rounded-xl text-indigo-400 hover:bg-indigo-500/20 transition-colors border border-transparent hover:border-indigo-400/30" title="Edit">
+                          <Edit2 className="w-4 h-4" />
+                        </button>
                         <button
-                          onClick={() => handleDeleteSale(item)}
+                          onClick={() => handleDeleteSale(item.id, item.productId)}
                           className="inline-flex items-center justify-center p-2 rounded-xl text-white bg-red-500/10 hover:bg-red-500 transition-all border border-red-500/20 shadow-sm"
                           title="Delete Sale"
                         >

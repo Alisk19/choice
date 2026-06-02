@@ -115,18 +115,40 @@ export const dbService = {
     const productRef = doc(db, PRODUCTS_COLLECTION, id);
     let status = updatedFields.status;
     
-    // Auto-calculate status if not explicitly set
     if (!status) {
       if (updatedFields.soldPrice) status = 'Sold';
       else if (updatedFields.quantity < 5) status = 'Low Stock';
       else status = 'In Stock';
     }
 
-    await updateDoc(productRef, {
+    const batch = writeBatch(db);
+
+    batch.update(productRef, {
       ...updatedFields,
       status,
       updatedAt: new Date().toISOString()
     });
+
+    if (status === 'Sold' || updatedFields.status === 'Sold') {
+      const q = query(collection(db, SALES_COLLECTION), where("productId", "==", id));
+      const snapshot = await getDocs(q);
+      
+      snapshot.forEach(saleDoc => {
+        const saleData = saleDoc.data();
+        const newPurchasePrice = updatedFields.purchasePrice !== undefined ? updatedFields.purchasePrice : saleData.purchasePrice;
+        const profit = Number(saleData.soldPrice) - Number(newPurchasePrice);
+
+        batch.update(saleDoc.ref, {
+          imeiNumber: updatedFields.imei !== undefined ? updatedFields.imei : saleData.imeiNumber,
+          modelName: updatedFields.modelName !== undefined ? updatedFields.modelName : saleData.modelName,
+          brandName: updatedFields.brand !== undefined ? updatedFields.brand : saleData.brandName,
+          purchasePrice: newPurchasePrice,
+          profit: profit
+        });
+      });
+    }
+
+    await batch.commit();
   },
 
   // Delete a product
