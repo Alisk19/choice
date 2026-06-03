@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { 
   AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, 
@@ -40,6 +40,20 @@ export default function Dashboard() {
     selectedRange, setSelectedRange, customStartDate, setCustomStartDate, customEndDate, setCustomEndDate, filterDataByDate
   } = useDateFilter('All Time');
 
+  // Automatic cleanup of orphaned sales data
+  useEffect(() => {
+    if (salesData.length > 0 && inventory.length > 0) {
+      const orphanedSales = salesData.filter(sale => !inventory.some(item => item.id === sale.productId));
+      if (orphanedSales.length > 0) {
+        orphanedSales.forEach(sale => {
+          import('../services/db').then(({ dbService }) => {
+            dbService.deleteSale(sale.id, null).catch(console.error);
+          });
+        });
+      }
+    }
+  }, [salesData, inventory]);
+
   // Filtered Inventory (Overall Stock, Ready Stock, Low Stock) based on createdAt
   const filteredInventory = useMemo(() => filterDataByDate(inventory, 'createdAt'), [inventory, filterDataByDate]);
 
@@ -52,9 +66,8 @@ export default function Dashboard() {
   // Filtered Sales Analytics
   const filteredSales = useMemo(() => filterDataByDate(salesData, 'soldDate'), [salesData, filterDataByDate]);
 
-  // Sold Stock (derived from inventory to match Stock page)
-  const soldStockItems = filteredInventory.filter(item => item.status === 'Sold');
-  const soldStock = soldStockItems.length;
+  // Units Sold (dynamically filtered by soldDate to perfectly match Sales section)
+  const unitsSold = filteredSales.length;
 
   // Low Stock Count
   const lowStockItems = readyStockItems.filter(item => Number(item.quantity || 1) < 5);
@@ -95,8 +108,8 @@ export default function Dashboard() {
       setActiveModal({ title: 'Overall Stock', value: overallStock, data: inventory, type: 'stock' });
     } else if (type === 'Ready Stock') {
       setActiveModal({ title: 'Ready Stock', value: readyStock, data: readyStockItems, type: 'stock' });
-    } else if (type === 'Sold Stock') {
-      setActiveModal({ title: 'Sold Stock', value: soldStock, data: soldStockItems, type: 'stock' });
+    } else if (type === 'Units Sold') {
+      setActiveModal({ title: 'Units Sold', value: unitsSold, data: filteredSales, type: 'sales' });
     } else if (type === 'Total Sales Value') {
       setActiveModal({ title: 'Total Sales Value', value: `₹${totalSalesValue.toLocaleString()}`, data: filteredSales, type: 'sales' });
     } else if (type === 'Total Profit') {
@@ -166,7 +179,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <StatCard title="Overall Stock" value={overallStock} icon={Package} iconColor="text-blue-400" iconBg="bg-blue-500/10 border-blue-500/20" onClick={() => handleCardClick('Overall Stock')} />
         <StatCard title="Ready Stock" value={readyStock} icon={ShoppingCart} iconColor="text-emerald-400" iconBg="bg-emerald-500/10 border-emerald-500/20" onClick={() => handleCardClick('Ready Stock')} />
-        <StatCard title="Sold Stock" value={soldStock} icon={TrendingUp} iconColor="text-purple-400" iconBg="bg-purple-500/10 border-purple-500/20" onClick={() => handleCardClick('Sold Stock')} />
+        <StatCard title="Units Sold" value={unitsSold} icon={TrendingUp} iconColor="text-purple-400" iconBg="bg-purple-500/10 border-purple-500/20" onClick={() => handleCardClick('Units Sold')} />
         
         <StatCard title="Total Sales Value" value={`₹${totalSalesValue.toLocaleString()}`} icon={DollarSign} trend="up" trendValue="Filtered" iconColor="text-cyan-400" iconBg="bg-cyan-500/10 border-cyan-500/20" onClick={() => handleCardClick('Total Sales Value')} />
         <StatCard title="Total Profit" value={`₹${totalProfit.toLocaleString()}`} icon={Activity} trend="up" trendValue="Filtered" iconColor="text-amber-400" iconBg="bg-amber-500/10 border-amber-500/20" onClick={() => handleCardClick('Total Profit')} />

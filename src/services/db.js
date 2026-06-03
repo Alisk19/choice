@@ -151,10 +151,20 @@ export const dbService = {
     await batch.commit();
   },
 
-  // Delete a product
+  // Delete a product and its associated sales to prevent orphans
   deleteProduct: async (id) => {
     const productRef = doc(db, PRODUCTS_COLLECTION, id);
-    await deleteDoc(productRef);
+    const batch = writeBatch(db);
+    batch.delete(productRef);
+    
+    // Also delete any associated sales records
+    const q = query(collection(db, SALES_COLLECTION), where("productId", "==", id));
+    const snapshot = await getDocs(q);
+    snapshot.forEach(saleDoc => {
+      batch.delete(saleDoc.ref);
+    });
+    
+    await batch.commit();
   },
 
   // Mark a product as sold (Batch operation to update product and add sale)
