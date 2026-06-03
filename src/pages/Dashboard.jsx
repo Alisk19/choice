@@ -40,20 +40,25 @@ export default function Dashboard() {
     selectedRange, setSelectedRange, customStartDate, setCustomStartDate, customEndDate, setCustomEndDate, filterDataByDate
   } = useDateFilter('All Time');
 
-  // Overall Stock: All mobile units ever added
-  const overallStock = inventory.length;
-  // Ready Stock: Unsold mobile units
-  const readyStockItems = inventory.filter(item => item.status === 'In Stock' || item.status === 'Low Stock');
+  // Filtered Inventory (Overall Stock, Ready Stock, Low Stock) based on createdAt
+  const filteredInventory = useMemo(() => filterDataByDate(inventory, 'createdAt'), [inventory, filterDataByDate]);
+
+  // Overall Stock
+  const overallStock = filteredInventory.length;
+  // Ready Stock
+  const readyStockItems = filteredInventory.filter(item => item.status === 'In Stock' || item.status === 'Low Stock');
   const readyStock = readyStockItems.length;
-  // Sold Stock
-  const soldStock = inventory.filter(item => item.status === 'Sold').length;
+
+  // Filtered Sales Analytics
+  const filteredSales = useMemo(() => filterDataByDate(salesData, 'soldDate'), [salesData, filterDataByDate]);
+
+  // Sold Stock (dynamically filtered by soldDate)
+  const soldStock = filteredSales.length;
+
   // Low Stock Count
   const lowStockItems = readyStockItems.filter(item => Number(item.quantity || 1) < 5);
   const lowStockCount = lowStockItems.length;
 
-  // Filtered Sales Analytics
-  const filteredSales = useMemo(() => filterDataByDate(salesData, 'soldDate'), [salesData, filterDataByDate]);
-  
   const totalSalesValue = filteredSales.reduce((acc, item) => acc + Number(item.soldPrice || 0), 0);
   const totalProfit = filteredSales.reduce((acc, item) => acc + Number(item.profit || 0), 0);
 
@@ -90,7 +95,7 @@ export default function Dashboard() {
     } else if (type === 'Ready Stock') {
       setActiveModal({ title: 'Ready Stock', value: readyStock, data: readyStockItems, type: 'stock' });
     } else if (type === 'Sold Stock') {
-      setActiveModal({ title: 'Sold Stock', value: soldStock, data: inventory.filter(item => item.status === 'Sold'), type: 'stock' });
+      setActiveModal({ title: 'Sold Stock', value: soldStock, data: filteredSales, type: 'sales' });
     } else if (type === 'Total Sales Value') {
       setActiveModal({ title: 'Total Sales Value', value: `₹${totalSalesValue.toLocaleString()}`, data: filteredSales, type: 'sales' });
     } else if (type === 'Total Profit') {

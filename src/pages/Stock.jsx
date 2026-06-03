@@ -93,31 +93,13 @@ export default function Stock() {
     });
   }, [inventory, searchTerm, activeStatusFilter, activeBrand, filterDataByDate]);
 
-  // Create a version of filtered inventory WITHOUT date filtering for the summary cards
-  const cardInventory = useMemo(() => {
-    return inventory.filter(item => {
-      const matchesSearch =
-        (item.modelName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (item.brand || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        String(item.imei || '').includes(searchTerm);
-      
-      const normItemBrand = normalizeBrand(item.brand);
-      const matchesBrand = activeBrand === 'All Brands' 
-        ? true 
-        : activeBrand === 'Other' 
-          ? !['Apple', 'Samsung', 'OnePlus', 'Xiaomi', 'Vivo', 'Oppo'].includes(normItemBrand)
-          : normItemBrand === activeBrand;
-      
-      return matchesSearch && matchesBrand;
-    });
-  }, [inventory, searchTerm, activeBrand]);
-
-  const totalItems = cardInventory.length;
-  const readyStockItems = cardInventory.filter(item => item.status === 'In Stock' || item.status === 'Low Stock');
+  // Use filteredInventory for cards so they respond to date, search, brand, AND status filters
+  const totalItems = filteredInventory.length;
+  const readyStockItems = filteredInventory.filter(item => item.status === 'In Stock' || item.status === 'Low Stock');
   const readyStockCount = readyStockItems.length;
-  const soldStockItems = cardInventory.filter(item => item.status === 'Sold');
+  const soldStockItems = filteredInventory.filter(item => item.status === 'Sold');
   const soldStockCount = soldStockItems.length;
-  const totalPurchaseValue = cardInventory.reduce((acc, item) => acc + Number(item.purchasePrice || 0), 0);
+  const totalPurchaseValue = filteredInventory.reduce((acc, item) => acc + Number(item.purchasePrice || 0), 0);
 
   const totalPages = Math.ceil(filteredInventory.length / itemsPerPage) || 1;
   const paginatedData = filteredInventory.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -185,7 +167,7 @@ export default function Stock() {
 
   const handleCardClick = (type) => {
     if (type === 'Overall Stock') {
-      setActiveModal({ title: 'Overall Stock', value: totalItems, data: cardInventory });
+      setActiveModal({ title: 'Overall Stock', value: totalItems, data: filteredInventory });
     } else if (type === 'Ready Stock') {
       setActiveModal({ title: 'Ready Stock', value: readyStockCount, data: readyStockItems });
     } else if (type === 'Sold Stock') {
