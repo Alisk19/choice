@@ -40,24 +40,29 @@ export default function Dashboard() {
     selectedRange, setSelectedRange, customStartDate, setCustomStartDate, customEndDate, setCustomEndDate, filterDataByDate
   } = useDateFilter('All Time');
 
-  // Automatic cleanup of orphaned sales data
-  useEffect(() => {
-    if (salesData.length > 0 && inventory.length > 0) {
-      // Clean up sales if the product was deleted entirely, OR if it was edited back to "In Stock"
+  const handleManualSync = async () => {
+    try {
+      const { dbService } = await import('../services/db');
       const orphanedSales = salesData.filter(sale => {
         const product = inventory.find(item => item.id === sale.productId);
         return !product || product.status !== 'Sold';
       });
       
       if (orphanedSales.length > 0) {
-        orphanedSales.forEach(sale => {
-          import('../services/db').then(({ dbService }) => {
-            dbService.deleteSale(sale.id, null).catch(console.error);
-          });
-        });
+        let deleted = 0;
+        for (const sale of orphanedSales) {
+          await dbService.deleteSale(sale.id, null);
+          deleted++;
+        }
+        alert(`Successfully found and deleted ${deleted} orphaned sale records! The numbers should now match.`);
+      } else {
+        alert("No orphaned sales found. If numbers still mismatch, the issue might be something else.");
       }
+    } catch (error) {
+      console.error(error);
+      alert("Error syncing data: " + error.message);
     }
-  }, [salesData, inventory]);
+  };
 
   // Filtered Inventory (Overall Stock, Ready Stock, Low Stock) based on createdAt
   const filteredInventory = useMemo(() => filterDataByDate(inventory, 'createdAt'), [inventory, filterDataByDate]);
@@ -158,8 +163,15 @@ export default function Dashboard() {
           <p className="text-neutral-500 dark:text-neutral-400 mt-1 text-lg font-medium">Real-time inventory and sales analytics.</p>
         </div>
         
-        {/* Modern Date Filter Bar */}
-        <div className="flex items-center gap-3 bg-white/80 dark:bg-neutral-900/50 p-2 rounded-2xl border border-neutral-200 dark:border-white/10 backdrop-blur-md transition-colors duration-300">
+        {/* Modern Date Filter Bar & Sync Button */}
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={handleManualSync}
+            className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 rounded-xl font-bold text-sm border border-rose-500/20 transition-colors"
+          >
+            Fix Data Sync
+          </button>
+          <div className="flex items-center gap-3 bg-white/80 dark:bg-neutral-900/50 p-2 rounded-2xl border border-neutral-200 dark:border-white/10 backdrop-blur-md transition-colors duration-300">
           <CalendarIcon className="w-5 h-5 text-neutral-500 dark:text-neutral-400 ml-2" />
           <select 
             value={selectedRange} 
@@ -177,6 +189,7 @@ export default function Dashboard() {
               <input type="date" value={customEndDate || ''} onChange={(e) => setCustomEndDate(e.target.value)} className="bg-neutral-50 dark:bg-white/5 border border-neutral-200 dark:border-white/10 rounded-lg px-2 py-1 text-xs text-neutral-900 dark:text-white" />
             </div>
           )}
+        </div>
         </div>
       </div>
 
