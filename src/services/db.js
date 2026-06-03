@@ -146,6 +146,13 @@ export const dbService = {
           profit: profit
         });
       });
+    } else {
+      // If status changed to something else, remove associated sale records
+      const q = query(collection(db, SALES_COLLECTION), where("productId", "==", id));
+      const snapshot = await getDocs(q);
+      snapshot.forEach(saleDoc => {
+        batch.delete(saleDoc.ref);
+      });
     }
 
     await batch.commit();

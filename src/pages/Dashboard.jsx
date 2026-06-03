@@ -43,7 +43,12 @@ export default function Dashboard() {
   // Automatic cleanup of orphaned sales data
   useEffect(() => {
     if (salesData.length > 0 && inventory.length > 0) {
-      const orphanedSales = salesData.filter(sale => !inventory.some(item => item.id === sale.productId));
+      // Clean up sales if the product was deleted entirely, OR if it was edited back to "In Stock"
+      const orphanedSales = salesData.filter(sale => {
+        const product = inventory.find(item => item.id === sale.productId);
+        return !product || product.status !== 'Sold';
+      });
+      
       if (orphanedSales.length > 0) {
         orphanedSales.forEach(sale => {
           import('../services/db').then(({ dbService }) => {
