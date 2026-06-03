@@ -52,8 +52,9 @@ export default function Dashboard() {
   // Filtered Sales Analytics
   const filteredSales = useMemo(() => filterDataByDate(salesData, 'soldDate'), [salesData, filterDataByDate]);
 
-  // Sold Stock (dynamically filtered by soldDate)
-  const soldStock = filteredSales.length;
+  // Sold Stock (derived from inventory to match Stock page)
+  const soldStockItems = filteredInventory.filter(item => item.status === 'Sold');
+  const soldStock = soldStockItems.length;
 
   // Low Stock Count
   const lowStockItems = readyStockItems.filter(item => Number(item.quantity || 1) < 5);
@@ -95,7 +96,7 @@ export default function Dashboard() {
     } else if (type === 'Ready Stock') {
       setActiveModal({ title: 'Ready Stock', value: readyStock, data: readyStockItems, type: 'stock' });
     } else if (type === 'Sold Stock') {
-      setActiveModal({ title: 'Sold Stock', value: soldStock, data: filteredSales, type: 'sales' });
+      setActiveModal({ title: 'Sold Stock', value: soldStock, data: soldStockItems, type: 'stock' });
     } else if (type === 'Total Sales Value') {
       setActiveModal({ title: 'Total Sales Value', value: `₹${totalSalesValue.toLocaleString()}`, data: filteredSales, type: 'sales' });
     } else if (type === 'Total Profit') {
