@@ -47,16 +47,29 @@ export default function Dashboard() {
         const product = inventory.find(item => item.id === sale.productId);
         return !product || product.status !== 'Sold';
       });
+
+      // Find duplicate sales records that point to the exact same productId
+      const seenProductIds = new Set();
+      const duplicateSales = [];
+      salesData.forEach(sale => {
+        if (sale.productId && seenProductIds.has(sale.productId)) {
+          duplicateSales.push(sale);
+        } else if (sale.productId) {
+          seenProductIds.add(sale.productId);
+        }
+      });
       
-      if (orphanedSales.length > 0) {
+      const toDelete = [...orphanedSales, ...duplicateSales];
+      
+      if (toDelete.length > 0) {
         let deleted = 0;
-        for (const sale of orphanedSales) {
+        for (const sale of toDelete) {
           await dbService.deleteSale(sale.id, null);
           deleted++;
         }
-        alert(`Successfully found and deleted ${deleted} orphaned sale records! The numbers should now match.`);
+        alert(`Successfully found and deleted ${orphanedSales.length} orphaned records and ${duplicateSales.length} duplicate records! The numbers should now match.`);
       } else {
-        alert("No orphaned sales found. If numbers still mismatch, the issue might be something else.");
+        alert("No orphaned or duplicate sales found. If numbers still mismatch, the issue might be something else.");
       }
     } catch (error) {
       console.error(error);
