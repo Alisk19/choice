@@ -179,6 +179,7 @@ export default function Stock() {
     <tr key={item.id} className="hover:bg-neutral-50/50 dark:hover:bg-white/5 transition-colors">
       <td className="px-6 py-4 text-sm font-bold text-neutral-900 dark:text-white">{item.brand} {item.modelName}</td>
       <td className="px-6 py-4 text-sm font-mono text-neutral-500 dark:text-neutral-400">{item.imei}</td>
+      <td className="px-6 py-4 text-sm font-bold text-neutral-900 dark:text-white">{item.purchaseFrom || '-'}</td>
       <td className="px-6 py-4 text-sm font-bold text-right text-neutral-900 dark:text-white">₹{Number(item.purchasePrice || 0).toLocaleString()}</td>
       <td className="px-6 py-4 text-center">
         <span className="inline-flex px-2 py-1 text-xs font-bold rounded-full bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white">{item.quantity}</span>
@@ -295,6 +296,7 @@ export default function Stock() {
               <tr className="border-b border-neutral-200 dark:border-white/10 bg-neutral-50/50 dark:bg-neutral-900/40">
                 <th className="px-6 py-4 text-xs font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Product</th>
                 <th className="px-6 py-4 text-xs font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">IMEI</th>
+                <th className="px-6 py-4 text-xs font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Supplier</th>
                 <th className="px-6 py-4 text-xs font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider text-right">Price (₹)</th>
                 <th className="px-6 py-4 text-xs font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider text-center">Qty</th>
                 <th className="px-6 py-4 text-xs font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Status</th>
@@ -309,6 +311,7 @@ export default function Stock() {
                     <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{item.color}{item.color && item.variant ? ' • ' : ''}{item.variant}</div>
                   </td>
                   <td className="px-6 py-5 text-sm font-mono font-medium text-neutral-600 dark:text-neutral-300">{item.imei}</td>
+                  <td className="px-6 py-5 text-sm font-bold text-neutral-900 dark:text-white">{item.purchaseFrom || '-'}</td>
                   <td className="px-6 py-5 text-right">
                     <div className="font-bold text-neutral-900 dark:text-white">₹{Number(item.status === 'Sold' ? item.soldPrice : item.purchasePrice || 0).toLocaleString()}</div>
                     {item.status === 'Sold' && (
@@ -443,7 +446,7 @@ export default function Stock() {
           title={activeModal.title}
           value={activeModal.value}
           data={activeModal.data}
-          columns={['Product', 'IMEI', {label: 'Price', align: 'right'}, {label: 'Qty', align: 'center'}, 'Status']}
+          columns={['Product', 'IMEI', 'Supplier', {label: 'Price', align: 'right'}, {label: 'Qty', align: 'center'}, 'Status']}
           renderRow={renderModalRow}
         />
       )}

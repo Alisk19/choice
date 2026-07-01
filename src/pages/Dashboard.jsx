@@ -77,13 +77,10 @@ export default function Dashboard() {
     }
   };
 
-  // Filtered Inventory (Overall Stock, Ready Stock, Low Stock) based on createdAt
-  const filteredInventory = useMemo(() => filterDataByDate(inventory, 'createdAt'), [inventory, filterDataByDate]);
-
-  // Overall Stock
-  const overallStock = filteredInventory.length;
+  // Overall Stock (always show absolute values regardless of date filter)
+  const overallStock = inventory.length;
   // Ready Stock
-  const readyStockItems = filteredInventory.filter(item => item.status === 'In Stock' || item.status === 'Low Stock');
+  const readyStockItems = inventory.filter(item => item.status === 'In Stock' || item.status === 'Low Stock');
   const readyStock = readyStockItems.length;
 
   // Filtered Sales Analytics
@@ -146,6 +143,7 @@ export default function Dashboard() {
     <tr key={item.id} className="hover:bg-neutral-50/50 dark:hover:bg-white/5 transition-colors">
       <td className="px-6 py-4 text-sm font-bold text-neutral-900 dark:text-white">{item.brand} {item.modelName}</td>
       <td className="px-6 py-4 text-sm font-mono text-neutral-500 dark:text-neutral-400">{item.imei}</td>
+      <td className="px-6 py-4 text-sm font-bold text-neutral-900 dark:text-white">{item.purchaseFrom || '-'}</td>
       <td className="px-6 py-4 text-sm font-bold text-right text-neutral-900 dark:text-white">₹{Number(item.purchasePrice || 0).toLocaleString()}</td>
       <td className="px-6 py-4 text-center">
         <span className="inline-flex px-2 py-1 text-xs font-bold rounded-full bg-neutral-100 dark:bg-white/5 border border-neutral-200 dark:border-white/10 text-neutral-900 dark:text-white">{item.quantity}</span>
@@ -310,7 +308,7 @@ export default function Dashboard() {
           value={activeModal.value}
           data={activeModal.data}
           columns={activeModal.type === 'stock' 
-            ? ['Product', 'IMEI', {label: 'Price', align: 'right'}, {label: 'Qty', align: 'center'}, 'Status'] 
+            ? ['Product', 'IMEI', 'Supplier', {label: 'Price', align: 'right'}, {label: 'Qty', align: 'center'}, 'Status'] 
             : ['Product', 'IMEI', 'Customer', {label: 'Sold Price', align: 'right'}, {label: 'Profit', align: 'right'}]}
           renderRow={activeModal.type === 'stock' ? renderStockRow : renderSalesRow}
         />

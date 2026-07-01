@@ -24,6 +24,7 @@ export default function EditStockModal({ isOpen, onClose, item, onSave }) {
         otherBrand,
         purchasePrice: item.purchasePrice || '',
         quantity: item.quantity || '1',
+        purchaseFrom: item.purchaseFrom || '',
       });
       setErrors({});
     }
@@ -128,6 +129,11 @@ export default function EditStockModal({ isOpen, onClose, item, onSave }) {
               <div className="space-y-1.5">
                 <label className="text-sm font-bold text-neutral-700 dark:text-neutral-300 ml-1">Quantity</label>
                 <input type="number" name="quantity" value={formData.quantity || ''} onChange={handleChange} className={inputClass} />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-bold text-neutral-700 dark:text-neutral-300 ml-1">Supplier (Purchase From)</label>
+                <input type="text" name="purchaseFrom" value={formData.purchaseFrom || ''} onChange={handleChange} className={inputClass} />
               </div>
 
               <div className="space-y-1.5">

@@ -45,7 +45,6 @@ export default function DataEntry() {
     customerName: '',
     customerPhone: '',
     purchaseFrom: '',
-    purchaseFrom: '',
     mobileNumber: '',
     notes: '',
     otherBrand: ''
@@ -82,6 +81,10 @@ export default function DataEntry() {
 
     if (!formData.quantity || isNaN(formData.quantity) || Number(formData.quantity) < 1) {
       newErrors.quantity = 'Quantity must be at least 1';
+    }
+
+    if (!formData.purchaseFrom) {
+      newErrors.purchaseFrom = 'Purchase from is required';
     }
 
     setErrors(newErrors);
@@ -216,7 +219,7 @@ export default function DataEntry() {
               </div>
               <InputField formData={formData} handleChange={handleChange} errors={errors} label="Purchase Date" name="purchaseDate" type="date" required />
               <div className="grid grid-cols-2 gap-4">
-                <InputField formData={formData} handleChange={handleChange} errors={errors} label="Purchase from" name="purchaseFrom" placeholder="e.g. Supplier Name" />
+                <InputField formData={formData} handleChange={handleChange} errors={errors} label="Purchase from" name="purchaseFrom" placeholder="e.g. Supplier Name" required />
                 <InputField formData={formData} handleChange={handleChange} errors={errors} label="Mobile number" name="mobileNumber" placeholder="Supplier Contact" />
               </div>
             </div>
