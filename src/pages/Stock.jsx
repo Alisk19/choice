@@ -55,7 +55,12 @@ export default function Stock() {
 
   const filteredInventory = useMemo(() => {
     // 1. Filter by Date Range
-    const dateFiltered = filterDataByDate(inventory, 'createdAt');
+    // Ready stock represents physical inventory available right now, so it shouldn't be hidden by date filters.
+    // Date filters apply to historical data (like when an item was sold).
+    const dateFiltered = inventory.filter(item => {
+      if (item.status === 'In Stock' || item.status === 'Low Stock') return true;
+      return filterDataByDate([item], 'createdAt').length > 0;
+    });
 
     // 2. Filter by Search, Status, and Brand
     return dateFiltered.filter(item => {
