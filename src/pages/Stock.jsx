@@ -38,7 +38,7 @@ export default function Stock() {
   const [currentPage, setCurrentPage] = useState(1);
   const [soldModalOpen, setSoldModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
-  const [soldForm, setSoldForm] = useState({ soldPrice: '', customerName: '', customerPhone: '', paymentMethod: 'Cash' });
+  const [soldForm, setSoldForm] = useState({ soldPrice: '', customerName: '', customerPhone: '', paymentMethod: 'Cash', soldDate: '' });
   
   const [activeModal, setActiveModal] = useState(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -122,7 +122,8 @@ export default function Stock() {
 
   const handleOpenSoldModal = (item) => {
     setSelectedItem(item);
-    setSoldForm({ soldPrice: item.purchasePrice || '', customerName: '', customerPhone: '', paymentMethod: 'Cash' });
+    const today = new Date().toISOString().split('T')[0];
+    setSoldForm({ soldPrice: item.purchasePrice || '', customerName: '', customerPhone: '', paymentMethod: 'Cash', soldDate: today });
     setSoldModalOpen(true);
   };
 
@@ -155,7 +156,11 @@ export default function Stock() {
       return;
     }
     try {
-      await dbService.markAsSold(selectedItem, soldForm);
+      const formSubmission = { ...soldForm };
+      if (formSubmission.soldDate) {
+        formSubmission.soldDate = new Date(formSubmission.soldDate).toISOString();
+      }
+      await dbService.markAsSold(selectedItem, formSubmission);
       toast.success('Item marked as sold!');
       confetti({
         particleCount: 100,
@@ -424,6 +429,10 @@ export default function Stock() {
                   <div className="space-y-1.5">
                     <label className="text-sm font-bold text-neutral-700 dark:text-neutral-300 ml-1">Customer Phone</label>
                     <input type="text" value={soldForm.customerPhone} onChange={e => setSoldForm({ ...soldForm, customerPhone: e.target.value })} className={inputClass} placeholder="Optional" />
+                  </div>
+                  <div className="space-y-1.5 col-span-2">
+                    <label className="text-sm font-bold text-neutral-700 dark:text-neutral-300 ml-1">Sale Date</label>
+                    <input type="date" value={soldForm.soldDate} onChange={e => setSoldForm({ ...soldForm, soldDate: e.target.value })} className={inputClass} />
                   </div>
                 </div>
                 
